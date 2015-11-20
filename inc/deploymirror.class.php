@@ -71,7 +71,7 @@ class PluginFusioninventoryDeployMirror extends CommonDBTM {
       return $ong;
    }
 
-   static function haveGoodTag(Computer $computer, $results) {
+   static function haveGoodTag(Computer $computer, array $results, array $agent) {
       $plugin = new Plugin();
       if (!$plugin->isInstalled('tag') || !$plugin->isActivated('tag')) {
          return true;
@@ -97,7 +97,7 @@ class PluginFusioninventoryDeployMirror extends CommonDBTM {
 
 
    /*
-    * Get and filter mirrors list by computer agent and location (and tag)
+    * Get and filter mirrors list by computer agent and location and entities (and tag)
     * Location is retrieved from the computer data.
     */
 
@@ -123,13 +123,24 @@ class PluginFusioninventoryDeployMirror extends CommonDBTM {
       $mirrors = array();
       foreach ($results as $result) {
          // only is the same Location
-         if ($computer->fields['locations_id'] == $result['locations_id']) {
-            // filters by tag
-            if (self::haveGoodTag($computer, $result)) {
-               $mirrors[] = $result['url'];
+         if ($computer->fields['locations_id'] != $result['locations_id']) {
+            continue;
+         }
+
+         // filters by entities
+         $computer_entities = getSonsOf('glpi_entities', $computer->fields['entities_id']);
+         foreach (getSonsOf('glpi_entities', $result->fields['entities_id']) as $entity_id) {
+            if (! in_array($entity_id, $computer_entities)) {
+               continue;
             }
          }
 
+         // filters by tag
+         if (! self::haveGoodTag($computer, $result, $agent)) {
+            continue;
+         }
+
+         $mirrors[] = $result['url'];
       }
 
       //add default mirror (this server) if enabled in config

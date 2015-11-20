@@ -71,31 +71,6 @@ class PluginFusioninventoryDeployMirror extends CommonDBTM {
       return $ong;
    }
 
-   static function haveGoodTag(Computer $computer, array $results, array $agent) {
-      $plugin = new Plugin();
-      if (!$plugin->isInstalled('tag') || !$plugin->isActivated('tag')) {
-         return true;
-      }
-
-      $item = new PluginTagTagItem();
-
-      $tags_id_of_mirror = array();
-      foreach ($item->find('itemtype = "PluginFusioninventoryDeploymirror" AND items_id = '.$result['id']) as $data) {
-         $tags_id_of_mirror = $data["plugin_tag_tags_id"];
-      }
-
-      $tags_id_of_ticket = array();
-      foreach ($item->find('itemtype = "Ticket" AND items_id = '.$agent['computers_id']) as $data) {
-         $tags_id_of_ticket = $data["plugin_tag_tags_id"];
-         if (! in_array($data["plugin_tag_tags_id"], $tags_id_of_mirror)) {
-            return false;
-         }
-      }
-
-      return true;
-   }
-
-
    /*
     * Get and filter mirrors list by computer agent and location and entities (and tag)
     * Location is retrieved from the computer data.
@@ -135,8 +110,8 @@ class PluginFusioninventoryDeployMirror extends CommonDBTM {
             }
          }
 
-         // filters by tag
-         if (! self::haveGoodTag($computer, $result, $agent)) {
+         // Hook to implement to restrict mirror (used by Plugin Tag)
+         if (! Plugin::doHookFunction("fusionventory_mirror_restrict", array($computer, $result, $agent))) {
             continue;
          }
 

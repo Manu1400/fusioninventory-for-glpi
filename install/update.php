@@ -3853,6 +3853,10 @@ function pluginFusioninventoryUpdate($current_version, $migrationname='Migration
             'type' => "text",
             'value' => NULL
          ),
+         'plugin_fusioninventory_ipranges_id' => array(
+            'type' => INT(11) NOT NULL DEFAULT '0',
+            'value' => 0
+         ),
          'date_mod' =>  array(
             'type' => 'datetime DEFAULT NULL',
             'value' => NULL

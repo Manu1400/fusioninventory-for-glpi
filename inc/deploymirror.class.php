@@ -71,6 +71,30 @@ class PluginFusioninventoryDeployMirror extends CommonDBTM {
       return $ong;
    }
 
+   static function getIPAdressesOf($computer_id) {
+      global $DB;
+
+      $ip_adresses = array();
+
+      foreach ($DB->request('glpi_networkports',
+                           array('itemtype' => 'Computer',
+                                 'items_id' => $computer_id,
+                                 'is_deleted' => '0')) as $np_data) {
+         foreach ($DB->request('glpi_networknames',
+                               array('itemtype' => 'NetworkPort',
+                                      'items_id' => $np_data['id'])) as $dataname) {
+            foreach ($DB->request('glpi_ipaddresses',
+                                  array('itemtype' => 'NetworkName',
+                                        'items_id' => $dataname['id'])) as $data) {
+               $ip_adresses[] = $data['name'];
+            }
+         }
+      }
+
+      return $ip_adresses;
+   }
+
+
    /*
     * Get and filter mirrors list by computer agent and location and entities (and tag)
     * Location is retrieved from the computer data.
@@ -87,27 +111,49 @@ class PluginFusioninventoryDeployMirror extends CommonDBTM {
       $pfAgent->getFromDB($agents_id);
       $agent = $pfAgent->fields;
 
-      $results = getAllDatasFromTable('glpi_plugin_fusioninventory_deploymirrors');
       if (!isset($agent) || !isset($agent['computers_id'])) {
          return array();
       }
+
+      $results = getAllDatasFromTable('glpi_plugin_fusioninventory_deploymirrors');
 
       $computer = new Computer();
       $computer->getFromDB($agent['computers_id']);
 
       $mirrors = array();
-      foreach ($results as $result) {
-         // only is the same Location
-         if ($computer->fields['locations_id'] != $result['locations_id']) {
-            continue;
-         }
 
-         // filters by entities
-         $computer_entities = getSonsOf('glpi_entities', $computer->fields['entities_id']);
-         foreach (getSonsOf('glpi_entities', $result->fields['entities_id']) as $entity_id) {
-            if (! in_array($entity_id, $computer_entities)) {
+      $computer_locations  = getSonsOf('glpi_locations', $computer->fields['locations_id']);
+      $computer_entities   = getSonsOf('glpi_entities', $computer->fields['entities_id']);
+
+      $where = empty($computer_locations) ? "" : "locations_id IN (".implode(',', $computer_locations).") ";
+      if (! empty($computer_entities) ) {
+         if (! empty($where)) {
+            $where .= "AND ";
+         }
+         $where .= "entities_id IN (" . implode(',', $computer_entities) . ")";
+      }
+
+      $d_mirror = new self();
+      foreach ($d_mirror->find($where) as $result) {
+
+         $ip_adresses = self::getIPAdressesOf($computer->getID());
+
+         $pfIPRange = new PluginFusioninventoryIPRange();
+
+         foreach ($ip_adresses as $ip_adress) {
+            $pfIPRange->getFromDB($result['plugin_fusioninventory_ipranges_id']);
+
+            // Range IP
+            $s = $pfIPRange->getIp2long($pfIPRange->fields['ip_start']);
+            $e = $pfIPRange->getIp2long($pfIPRange->fields['ip_end']);
+
+            $i = $pfIPRange->getIp2long($ip_adress);
+
+            // If not in range IP
+            if (! ($s <= $i  && $i <= $e)) {
                continue;
             }
+
          }
 
          // Hook to implement to restrict mirror (used by Plugin Tag)
@@ -183,6 +229,12 @@ class PluginFusioninventoryDeployMirror extends CommonDBTM {
          )
       );
       echo "</div>";
+      echo "</td>";
+      echo "<td><label>" . PluginFusioninventoryIPRange::getTypeName(). "</label> :</td>";
+      echo "<td>";
+      PluginFusioninventoryIPRange::dropdown(array(
+         'value' => $this->fields['plugin_fusioninventory_ipranges_id'])
+      );
       echo "</td></tr>";
 
       $this->showFormButtons($options);
@@ -233,7 +285,7 @@ class PluginFusioninventoryDeployMirror extends CommonDBTM {
       $tab[81]['table']     = getTableNameForForeignKeyField('locations_id');
       $tab[81]['field']     = 'completename';
       $tab[81]['linkfield'] = 'locations_id';
-      $tab[81]['name']      = Location::getTypeName();
+      $tab[81]['name']      = Location::getTypeName(); //__('Mirror location', 'fusioninventory');
       $tab[81]['datatype']  = 'itemlink';
 
       $tab[86]['table']     = $this->getTable();
@@ -241,6 +293,20 @@ class PluginFusioninventoryDeployMirror extends CommonDBTM {
       $tab[86]['linkfield'] = 'is_recursive';
       $tab[86]['name']      = __('Child entities');
       $tab[86]['datatype']  = 'bool';
+
+      /*
+      $tab[87]['table']     = 'glpi_locations';
+      $tab[87]['field']     = 'name';
+      $tab[87]['linkfield'] = 'locations_id';
+      $tab[87]['name']      = __('Mirror location', 'fusioninventory');
+      $tab[87]['datatype']  = 'dropdown';
+      */
+
+      $tab[88]['table']     = getTableForItemType('PluginFusioninventoryIPRange');
+      $tab[88]['field']     = 'name';
+      $tab[88]['linkfield'] = 'plugin_fusioninventory_ipranges_id';
+      $tab[88]['name']      = PluginFusioninventoryIPRange::getTypeName();
+      $tab[88]['datatype']  = 'dropdown';
 
       return $tab;
    }

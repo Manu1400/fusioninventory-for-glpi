@@ -40,7 +40,7 @@ class PluginFusioninventoryDeploymirrorIprange extends CommonDBRelation {
    
       if ($canedit) {
          $target = Toolbox::getItemTypeFormURL(__CLASS__);
-         echo "<form name='tagitem_form$rand' id='tagitem_form$rand' method='post' action='".$target."'>";
+         echo "<form name='deploymirroriprange_form$rand' id='deploymirroriprange_form$rand' method='post' action='".$target."'>";
          
          echo "<table class='tab_cadre_fixe'>";
          echo "<tr class='tab_bg_2'><th colspan='2'>".__('Add an item')."</th></tr>";

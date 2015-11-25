@@ -789,12 +789,23 @@ CREATE TABLE `glpi_plugin_fusioninventory_deploymirrors` (
   `url` varchar(255) CHARACTER SET utf8 COLLATE utf8_unicode_ci NOT NULL DEFAULT '',
   `locations_id` int(11) NOT NULL,
   `comment` text DEFAULT NULL,
-  `plugin_fusioninventory_ipranges_id` INT(11) NOT NULL DEFAULT '0',
   `date_mod` datetime DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `entities_id` (`entities_id`),
-  KEY `date_mod` (`date_mod`),
-  INDEX `plugin_fusioninventory_ipranges_id` (`plugin_fusioninventory_ipranges_id`)
+  KEY `date_mod` (`date_mod`)
+) ENGINE = MYISAM CHARACTER SET utf8 COLLATE utf8_unicode_ci AUTO_INCREMENT=1;
+
+
+
+DROP TABLE IF EXISTS `glpi_plugin_fusioninventory_deploymirroripranges`;
+
+CREATE TABLE `glpi_plugin_fusioninventory_deploymirroripranges` (
+  `id` INT(11) NOT NULL AUTO_INCREMENT,
+  `plugin_fusioninventory_deploymirrors_id` INT(11) NOT NULL DEFAULT '0',
+  `plugin_fusioninventory_ipranges_id` INT(11) NOT NULL DEFAULT '0',
+  PRIMARY KEY (`id`),
+  KEY `plugin_fusioninventory_deploymirrors_id` (`plugin_fusioninventory_deploymirrors_id`),
+  KEY `plugin_fusioninventory_ipranges_id` (`plugin_fusioninventory_ipranges_id`)
 ) ENGINE = MYISAM CHARACTER SET utf8 COLLATE utf8_unicode_ci AUTO_INCREMENT=1;
 
 

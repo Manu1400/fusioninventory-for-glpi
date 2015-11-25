@@ -3853,10 +3853,6 @@ function pluginFusioninventoryUpdate($current_version, $migrationname='Migration
             'type' => "text",
             'value' => NULL
          ),
-         'plugin_fusioninventory_ipranges_id' => array(
-            'type' => INT(11) NOT NULL DEFAULT '0',
-            'value' => 0
-         ),
          'date_mod' =>  array(
             'type' => 'datetime DEFAULT NULL',
             'value' => NULL
@@ -3887,6 +3883,54 @@ function pluginFusioninventoryUpdate($current_version, $migrationname='Migration
 
       migrateTablesFusionInventory($migration, $a_table);
 
+      /*
+       * glpi_plugin_fusioninventory_deploymirroripranges
+       */
+
+      $a_table = array();
+
+      //table name
+      $a_table['name'] = 'glpi_plugin_fusioninventory_deploymirroripranges';
+      $a_table['oldname'] = array();
+
+      $a_table['fields'] = array(
+         'id' =>  array(
+            'type' => 'autoincrement',
+            'value' => NULL
+         ),
+         'plugin_fusioninventory_deploymirrors_id' =>  array(
+            'type' => 'int(11) NOT NULL DEFAULT 0',
+            'value' => NULL
+         ),
+         'plugin_fusioninventory_ipranges_id' =>  array(
+            'type' => 'int(11) NOT NULL DEFAULT 0',
+            'value' => NULL
+         ),
+      );
+
+      $a_table['oldfields'] = array(
+      );
+
+      $a_table['renamefields'] = array(
+      );
+
+      $a_table['keys'] = array(
+         array(
+            'field' => 'plugin_fusioninventory_deploymirrors_id',
+            'name' => '',
+            'type' => 'KEY'
+         ),
+         array(
+            'field' => 'plugin_fusioninventory_ipranges_id',
+            'name' => '',
+            'type' => 'KEY'
+         ),
+      );
+
+      $a_table['oldkeys'] = array(
+      );
+
+      migrateTablesFusionInventory($migration, $a_table);
 
       /*
        * glpi_plugin_fusioninventory_deploygroups

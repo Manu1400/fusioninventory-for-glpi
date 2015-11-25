@@ -54,20 +54,49 @@ class PluginFusioninventoryDeployMirror extends CommonDBTM {
       return __('Mirror servers', 'fusioninventory');
    }
 
+   /**
+    * Names of tabs
+    **/
+   function getTabNameForItem(CommonGLPI $item, $withtemplate=0) {
+      $tab = array();
+      $tab[1] = __('Main');
 
-
-   function defineTabs($options=array()) {
-
-      $ong=array();
-      $ong[1]=__('Main');
-
-
-      if ($this->fields['id'] > 0) {
-         $ong[12]=__('Historical');
-
+      if ($item->getID() > 0) { //useless line
+         $text = PluginFusioninventoryIPRange::getTypeName(Session::getPluralNumber());
+         if ($_SESSION['glpishow_count_on_tabs']) {
+            $count = countElementsInTable("glpi_plugin_fusioninventory_deploymirroripranges",
+                                                   "plugin_fusioninventory_deploymirrors_id = '".$item->getID()."'");
+            $tab[2] = self::createTabEntry($text, $count);
+         } else {
+            $tab[2] = $text;
+         }
       }
-      $ong['no_all_tab'] = TRUE;
-
+      return $tab;
+   }
+   
+   /**
+    * Content of tabs
+    **/
+   static function displayTabContentForItem(CommonGLPI $item, $tabnum=1, $withtemplate=0) {
+      switch ($item->getType()) {
+         case __CLASS__ :
+            switch ($tabnum) {
+               case 1 :
+                  $item->showForm($item->getID());
+                  break;
+               case 2 :
+                  $link = new PluginFusioninventoryDeploymirrorIprange();
+                  $link->showForDisplaymirror($item);
+                  break;
+            }
+      }
+      return true;
+   }
+   
+   function defineTabs($options=array()) {
+      $ong = array();
+      $this->addStandardTab(__CLASS__, $ong, $options);
+      $this->addStandardTab('Log', $ong, $options);
       return $ong;
    }
 
@@ -101,10 +130,12 @@ class PluginFusioninventoryDeployMirror extends CommonDBTM {
     */
 
    static function getList($agents_id = NULL) {
-      global $PF_CONFIG;
+      global $PF_CONFIG, $DB;
+
+      $mirrors = array();
 
       if (is_null($agents_id)) {
-         return array();
+         return $mirrors;
       }
 
       $pfAgent = new PluginFusioninventoryAgent();
@@ -112,15 +143,13 @@ class PluginFusioninventoryDeployMirror extends CommonDBTM {
       $agent = $pfAgent->fields;
 
       if (!isset($agent) || !isset($agent['computers_id'])) {
-         return array();
+         return $mirrors;
       }
 
-      $results = getAllDatasFromTable('glpi_plugin_fusioninventory_deploymirrors');
+      $pfIPRange = new PluginFusioninventoryIPRange();
 
       $computer = new Computer();
       $computer->getFromDB($agent['computers_id']);
-
-      $mirrors = array();
 
       $computer_locations  = getSonsOf('glpi_locations', $computer->fields['locations_id']);
       $computer_entities   = getSonsOf('glpi_entities', $computer->fields['entities_id']);
@@ -133,27 +162,32 @@ class PluginFusioninventoryDeployMirror extends CommonDBTM {
          $where .= "entities_id IN (" . implode(',', $computer_entities) . ")";
       }
 
+      $ip_adresses = self::getIPAdressesOf($computer->getID());
+
       $d_mirror = new self();
       foreach ($d_mirror->find($where) as $result) {
 
-         $ip_adresses = self::getIPAdressesOf($computer->getID());
+         $query = "SELECT *
+                     FROM glpi_plugin_fusioninventory_deploymirroripranges
+                     WHERE plugin_fusioninventory_deploymirrors_id = ".$result['id'];
 
-         $pfIPRange = new PluginFusioninventoryIPRange();
+         foreach ($DB->query($query) as $data) {
 
-         foreach ($ip_adresses as $ip_adress) {
-            $pfIPRange->getFromDB($result['plugin_fusioninventory_ipranges_id']);
+            foreach ($ip_adresses as $ip_adress) {
 
-            // Range IP
-            $s = $pfIPRange->getIp2long($pfIPRange->fields['ip_start']);
-            $e = $pfIPRange->getIp2long($pfIPRange->fields['ip_end']);
+               $pfIPRange->getFromDB($data['plugin_fusioninventory_ipranges_id']);
 
-            $i = $pfIPRange->getIp2long($ip_adress);
+               // Range IP
+               $s = $pfIPRange->getIp2long($pfIPRange->fields['ip_start']);
+               $e = $pfIPRange->getIp2long($pfIPRange->fields['ip_end']);
 
-            // If not in range IP
-            if (! ($s <= $i  && $i <= $e)) {
-               continue;
+               $i = $pfIPRange->getIp2long($ip_adress);
+
+               // If not in range IP
+               if (! ($s <= $i && $i <= $e)) {
+                  continue;
+               }
             }
-
          }
 
          // Hook to implement to restrict mirror (used by Plugin Tag)
@@ -182,12 +216,13 @@ class PluginFusioninventoryDeployMirror extends CommonDBTM {
    function showForm($id, $options=array()) {
       global $CFG_GLPI;
 
-      if ($id!='') {
+      if ($id != '') {
          $this->getFromDB($id);
       } else {
          $this->getEmpty();
       }
-      $this->showTabs($options);
+
+      //$this->showTabs($options);
       $this->showFormHeader($options);
 
       echo "<tr class='tab_bg_1'>";
@@ -229,20 +264,11 @@ class PluginFusioninventoryDeployMirror extends CommonDBTM {
          )
       );
       echo "</div>";
-      echo "</td>";
-      echo "<td><label>" . PluginFusioninventoryIPRange::getTypeName(). "</label> :</td>";
-      echo "<td>";
-      PluginFusioninventoryIPRange::dropdown(array(
-         'value' => $this->fields['plugin_fusioninventory_ipranges_id'])
-      );
       echo "</td></tr>";
 
       $this->showFormButtons($options);
 
       echo "<div id='tabcontent'></div>";
-
-      echo "<script type='text/javascript'>loadDefaultTab();
-      </script>";
 
       return TRUE;
    }
@@ -252,6 +278,9 @@ class PluginFusioninventoryDeployMirror extends CommonDBTM {
    function getSearchOptions() {
 
       $tab = array();
+
+      $tab['common']           = __('Characteristics');
+
       $tab[1]['table']         = $this->getTable();
       $tab[1]['field']         = 'name';
       $tab[1]['linkfield']     = 'name';
@@ -281,11 +310,10 @@ class PluginFusioninventoryDeployMirror extends CommonDBTM {
       $tab[80]['field']     = 'completename';
       $tab[80]['name']      = __('Entity');
 
-
       $tab[81]['table']     = getTableNameForForeignKeyField('locations_id');
       $tab[81]['field']     = 'completename';
       $tab[81]['linkfield'] = 'locations_id';
-      $tab[81]['name']      = Location::getTypeName(); //__('Mirror location', 'fusioninventory');
+      $tab[81]['name']      = Location::getTypeName();
       $tab[81]['datatype']  = 'itemlink';
 
       $tab[86]['table']     = $this->getTable();
@@ -294,19 +322,19 @@ class PluginFusioninventoryDeployMirror extends CommonDBTM {
       $tab[86]['name']      = __('Child entities');
       $tab[86]['datatype']  = 'bool';
 
-      /*
-      $tab[87]['table']     = 'glpi_locations';
-      $tab[87]['field']     = 'name';
-      $tab[87]['linkfield'] = 'locations_id';
-      $tab[87]['name']      = __('Mirror location', 'fusioninventory');
-      $tab[87]['datatype']  = 'dropdown';
-      */
 
-      $tab[88]['table']     = getTableForItemType('PluginFusioninventoryIPRange');
-      $tab[88]['field']     = 'name';
-      $tab[88]['linkfield'] = 'plugin_fusioninventory_ipranges_id';
-      $tab[88]['name']      = PluginFusioninventoryIPRange::getTypeName();
-      $tab[88]['datatype']  = 'dropdown';
+      $tab['iprange']       = __('IP Ranges', 'fusioninventory');
+
+      $tab[87]['table']          = 'glpi_plugin_fusioninventory_deploymirroripranges';
+      $tab[87]['field']          = 'id';
+      $tab[87]['name']           = __('Number of IP ranges', 'fusioninventory');
+      $tab[87]['searchtype']     = array('equals');
+      $tab[87]['forcegroupby']   = true;
+      $tab[87]['usehaving']      = true;
+      $tab[87]['datatype']       = 'count';
+      $tab[87]['massiveaction']  = false;
+      $tab[87]['joinparams']     = array('jointype'  => 'child',
+                                         'condition' => '');
 
       return $tab;
    }
@@ -319,6 +347,9 @@ class PluginFusioninventoryDeployMirror extends CommonDBTM {
 
       $actions = array();
       $actions[__CLASS__.MassiveAction::CLASS_ACTION_SEPARATOR.'transfert'] = __('Transfer');
+
+      $actions[__CLASS__.MassiveAction::CLASS_ACTION_SEPARATOR.'associate_iprange']  = __('Associate an IP range', 'fusioninventory');
+      $actions[__CLASS__.MassiveAction::CLASS_ACTION_SEPARATOR.'dissociate_iprange'] = __('Dissociate an IP range', 'fusioninventory');
 
       return $actions;
    }
@@ -333,9 +364,17 @@ class PluginFusioninventoryDeployMirror extends CommonDBTM {
       switch ($ma->getAction()) {
          case "transfert": 
             Dropdown::show('Entity');
+            echo "<br><br>";
             echo Html::submit(_x('button','Post'), array('name' => 'massiveaction'));
             return true;
-            break;
+
+         case 'associate_iprange':
+         case 'dissociate_iprange':
+            $params = array('entity' => $_SESSION['glpiactiveentities']);
+            Dropdown::show('PluginFusioninventoryIPRange', $params);
+            echo "<br><br>";
+            echo Html::submit(_x('button','Post'), array('name' => 'massiveaction'));
+            return true;
       }
    }
 
@@ -346,6 +385,7 @@ class PluginFusioninventoryDeployMirror extends CommonDBTM {
    **/
    static function processMassiveActionsForOneItemtype(MassiveAction $ma, CommonDBTM $item,
                                                        array $ids) {
+      global $DB;
 
       $pfDeployMirror = new self();
 
@@ -362,6 +402,41 @@ class PluginFusioninventoryDeployMirror extends CommonDBTM {
                      $ma->itemDone($item->getType(), $key, MassiveAction::ACTION_OK);
                   } else {
                      // KO
+                     $ma->itemDone($item->getType(), $key, MassiveAction::ACTION_KO);
+                  }
+               }
+            }
+
+            break;
+
+         case "associate_iprange" :
+            $link = new PluginFusioninventoryDeploymirrorIprange();
+
+            foreach ($ids as $key) {
+               $newID = $link->add(array(
+                  "plugin_fusioninventory_ipranges_id" => $_REQUEST["plugin_fusioninventory_ipranges_id"],
+                  "plugin_fusioninventory_deploymirrors_id" => $key,
+               ));
+               if ($newID) {
+                  $ma->itemDone($item->getType(), $key, MassiveAction::ACTION_OK);
+               } else {
+                  $ma->itemDone($item->getType(), $key, MassiveAction::ACTION_KO);
+               }
+            }
+
+            break;
+
+         case "dissociate_iprange" :
+            $link = new PluginFusioninventoryDeploymirrorIprange();
+
+            foreach ($ids as $key) {
+               $where = "plugin_fusioninventory_deploymirrors_id = '".$key."'
+                           AND plugin_fusioninventory_ipranges_id = ".$_REQUEST['plugin_fusioninventory_ipranges_id'];
+
+               foreach ($link->find($where) as $id => $gt) {
+                  if ($link->delete($gt)) {
+                     $ma->itemDone($item->getType(), $key, MassiveAction::ACTION_OK);
+                  } else {
                      $ma->itemDone($item->getType(), $key, MassiveAction::ACTION_KO);
                   }
                }

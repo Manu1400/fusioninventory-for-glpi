@@ -39,11 +39,10 @@
 
    ------------------------------------------------------------------------
  */
-
 include ("../../../inc/includes.php");
 Session::checkLoginUser();
 
-Html::header(__('Mirror servers'), $_SERVER["PHP_SELF"], "plugins",
+Html::header(PluginFusioninventoryDeployMirror::getTypeName(), $_SERVER["PHP_SELF"], "plugins",
    "pluginfusioninventorymenu", "deploymirror");
 
 //PluginFusioninventoryProfile::checkRight("Fusioninventory", "agents", "r");
@@ -66,11 +65,14 @@ if (isset ($_POST["add"])) {
    Html::redirect(Toolbox::getItemTypeFormURL('PluginFusioninventoryDeployMirror'));
 }
 
-$id = "";
-if (isset($_GET["id"])) {
-   $id = $_GET["id"];
-}
-$mirror->showForm($id);
-Html::footer();
+$id = isset($_GET['id']) ? $_GET['id'] : "";
 
-?>
+if ($mirror->can($id, READ)) {
+   $mirror->display(array('id' => $id));
+} elseif ($mirror->getFromDB($id)) {
+   Html::displayNotFoundError();
+} else {
+   Html::redirect($CFG_GLPI["root_doc"]."plugins/fusioninventory/front/deploymirror.php");
+}
+
+Html::footer();

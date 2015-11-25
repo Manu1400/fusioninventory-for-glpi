@@ -3,11 +3,11 @@ include ("../../../inc/includes.php");
 
 Session::checkLoginUser();
 
-//Plugin::load('fusioninventory', true);
-
 if (isset ($_REQUEST["add"])) {
-	$link = new PluginFusioninventoryDeploymirrorIprange();
-   $newID = $link->add($_REQUEST, 1);
+	if (isset($_REQUEST['plugin_fusioninventory_ipranges_id']) && !empty($_REQUEST["plugin_fusioninventory_ipranges_id"])) {
+		$link = new PluginFusioninventoryDeploymirrorIprange();
+   	$newID = $link->add($_REQUEST, 1);
+	}
 
    Html::back();
 }

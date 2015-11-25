@@ -370,7 +370,10 @@ class PluginFusioninventoryDeployMirror extends CommonDBTM {
 
          case 'associate_iprange':
          case 'dissociate_iprange':
-            $params = array('entity' => $_SESSION['glpiactiveentities']);
+            $params = array(
+               'entity' => $_SESSION['glpiactiveentities'],
+               'entity_sons' => true,
+               );
             Dropdown::show('PluginFusioninventoryIPRange', $params);
             echo "<br><br>";
             echo Html::submit(_x('button','Post'), array('name' => 'massiveaction'));

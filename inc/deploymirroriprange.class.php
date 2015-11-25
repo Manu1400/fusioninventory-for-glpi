@@ -54,6 +54,7 @@ class PluginFusioninventoryDeploymirrorIprange extends CommonDBRelation {
          PluginFusioninventoryIPRange::dropdown(array(
          	'used' 	=> $used,
          	'entity' => $item->fields["entities_id"],
+            'entity_sons' => true,
          	));
          echo "</td>";
          echo "<td class='center'>";
